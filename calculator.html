@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Calculator</title>
+
+    <style>
+        /* ===== Page Layout ===== */
+
+        /* Reset default browser spacing and use a nice font */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            /* Center the calculator on the page */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+
+            /* Gradient background for a colorful look */
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        /* ===== Calculator Container ===== */
+
+        .calculator {
+            background: #1e1e2e;
+            border-radius: 20px;
+            padding: 24px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+            width: 320px;
+        }
+
+        /* ===== Display Area ===== */
+
+        .display {
+            background: #2a2a3d;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            text-align: right;
+            min-height: 80px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+        }
+
+        /* Shows the previous operand and operator (smaller text above) */
+        .previous-operand {
+            color: #8888aa;
+            font-size: 14px;
+            min-height: 20px;
+        }
+
+        /* Shows the current number being typed (large text) */
+        .current-operand {
+            color: #ffffff;
+            font-size: 32px;
+            word-break: break-all;
+        }
+
+        /* ===== Button Grid ===== */
+
+        .buttons {
+            /* 4-column grid for the calculator buttons */
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+        }
+
+        /* ===== Individual Buttons ===== */
+
+        button {
+            padding: 18px;
+            font-size: 20px;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: transform 0.1s, background 0.2s;
+            font-weight: 600;
+        }
+
+        /* Button press animation */
+        button:active {
+            transform: scale(0.95);
+        }
+
+        /* Number buttons - dark with white text */
+        .btn-number {
+            background: #3a3a52;
+            color: #ffffff;
+        }
+
+        .btn-number:hover {
+            background: #4a4a65;
+        }
+
+        /* Operator buttons (+, -, *, /) - orange/coral color */
+        .btn-operator {
+            background: #ff6b6b;
+            color: #ffffff;
+        }
+
+        .btn-operator:hover {
+            background: #ff8787;
+        }
+
+        /* Equals button - green to stand out */
+        .btn-equals {
+            background: #51cf66;
+            color: #ffffff;
+        }
+
+        .btn-equals:hover {
+            background: #69db7c;
+        }
+
+        /* Clear and Delete buttons - blue/teal */
+        .btn-clear {
+            background: #4dabf7;
+            color: #ffffff;
+        }
+
+        .btn-clear:hover {
+            background: #74c0fc;
+        }
+
+        /* Make the "0" button span two columns */
+        .btn-zero {
+            grid-column: span 2;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Calculator HTML Structure -->
+    <div class="calculator">
+
+        <!-- Display area showing numbers and operations -->
+        <div class="display">
+            <div class="previous-operand" id="previousOperand"></div>
+            <div class="current-operand" id="currentOperand">0</div>
+        </div>
+
+        <!-- Calculator buttons laid out in a grid -->
+        <div class="buttons">
+            <!-- Row 1: Clear, Delete, and operators -->
+            <button class="btn-clear" onclick="clearAll()">AC</button>
+            <button class="btn-clear" onclick="deleteDigit()">DEL</button>
+            <button class="btn-operator" onclick="chooseOperator('%')">%</button>
+            <button class="btn-operator" onclick="chooseOperator('/')">÷</button>
+
+            <!-- Row 2: 7, 8, 9, multiply -->
+            <button class="btn-number" onclick="appendNumber('7')">7</button>
+            <button class="btn-number" onclick="appendNumber('8')">8</button>
+            <button class="btn-number" onclick="appendNumber('9')">9</button>
+            <button class="btn-operator" onclick="chooseOperator('*')">×</button>
+
+            <!-- Row 3: 4, 5, 6, subtract -->
+            <button class="btn-number" onclick="appendNumber('4')">4</button>
+            <button class="btn-number" onclick="appendNumber('5')">5</button>
+            <button class="btn-number" onclick="appendNumber('6')">6</button>
+            <button class="btn-operator" onclick="chooseOperator('-')">−</button>
+
+            <!-- Row 4: 1, 2, 3, add -->
+            <button class="btn-number" onclick="appendNumber('1')">1</button>
+            <button class="btn-number" onclick="appendNumber('2')">2</button>
+            <button class="btn-number" onclick="appendNumber('3')">3</button>
+            <button class="btn-operator" onclick="chooseOperator('+')">+</button>
+
+            <!-- Row 5: 0 (spans 2 columns), decimal point, equals -->
+            <button class="btn-number btn-zero" onclick="appendNumber('0')">0</button>
+            <button class="btn-number" onclick="appendNumber('.')">.</button>
+            <button class="btn-equals" onclick="calculate()">=</button>
+        </div>
+    </div>
+
+    <script>
+        // =============================================
+        // CALCULATOR STATE
+        // =============================================
+        // These variables keep track of the calculator's current state.
+
+        let currentOperand = '0';   // The number currently being typed
+        let previousOperand = '';   // The first number (before the operator)
+        let operator = null;        // The chosen operator (+, -, *, /)
+        let shouldResetDisplay = false; // Flag: should the next digit replace the display?
+
+        // Grab references to the display elements so we can update them
+        const currentDisplay = document.getElementById('currentOperand');
+        const previousDisplay = document.getElementById('previousOperand');
+
+        // =============================================
+        // FUNCTION: appendNumber
+        // =============================================
+        // Called when a number button (0-9) or decimal point is clicked.
+        // Adds the digit to the current number on screen.
+
+        function appendNumber(number) {
+            // If we just finished a calculation, start fresh with the new digit
+            if (shouldResetDisplay) {
+                currentOperand = '';
+                shouldResetDisplay = false;
+            }
+
+            // Prevent multiple decimal points (e.g., "3.5.2" is not valid)
+            if (number === '.' && currentOperand.includes('.')) {
+                return;
+            }
+
+            // Replace the initial "0" with the typed digit (so we get "5" not "05")
+            // But allow "0." for decimal numbers
+            if (currentOperand === '0' && number !== '.') {
+                currentOperand = number;
+            } else {
+                currentOperand += number;
+            }
+
+            updateDisplay();
+        }
+
+        // =============================================
+        // FUNCTION: chooseOperator
+        // =============================================
+        // Called when an operator button (+, -, *, /) is clicked.
+        // Stores the operator and prepares for the second number.
+
+        function chooseOperator(op) {
+            // If there's already a pending operation, calculate it first
+            // This allows chaining like: 2 + 3 + 4
+            if (operator !== null && !shouldResetDisplay) {
+                calculate();
+            }
+
+            operator = op;
+            previousOperand = currentOperand;
+            shouldResetDisplay = true; // Next digit should start a new number
+
+            updateDisplay();
+        }
+
+        // =============================================
+        // FUNCTION: calculate
+        // =============================================
+        // Called when the equals button is clicked.
+        // Performs the actual math and shows the result.
+
+        function calculate() {
+            // We need both numbers and an operator to calculate
+            if (operator === null || previousOperand === '') {
+                return;
+            }
+
+            // Convert the string values to actual numbers for math
+            const prev = parseFloat(previousOperand);
+            const current = parseFloat(currentOperand);
+            let result;
+
+            // Perform the correct operation based on the chosen operator
+            switch (operator) {
+                case '+':
+                    result = prev + current;
+                    break;
+                case '-':
+                    result = prev - current;
+                    break;
+                case '*':
+                    result = prev * current;
+                    break;
+                case '/':
+                    // Handle division by zero - show an error instead of Infinity
+                    if (current === 0) {
+                        currentOperand = 'Error';
+                        operator = null;
+                        previousOperand = '';
+                        updateDisplay();
+                        return;
+                    }
+                    result = prev / current;
+                    break;
+                case '%':
+                    result = prev % current;
+                    break;
+                default:
+                    return;
+            }
+
+            // Round to avoid floating point issues (e.g., 0.1 + 0.2 = 0.30000000000000004)
+            currentOperand = String(Math.round(result * 1e12) / 1e12);
+
+            // Reset the operator and previous number since the calculation is done
+            operator = null;
+            previousOperand = '';
+            shouldResetDisplay = true;
+
+            updateDisplay();
+        }
+
+        // =============================================
+        // FUNCTION: clearAll
+        // =============================================
+        // Called when the AC (All Clear) button is clicked.
+        // Resets everything back to the starting state.
+
+        function clearAll() {
+            currentOperand = '0';
+            previousOperand = '';
+            operator = null;
+            shouldResetDisplay = false;
+
+            updateDisplay();
+        }
+
+        // =============================================
+        // FUNCTION: deleteDigit
+        // =============================================
+        // Called when the DEL button is clicked.
+        // Removes the last digit from the current number.
+
+        function deleteDigit() {
+            if (shouldResetDisplay) return; // Don't delete after a calculation
+
+            // Remove the last character; if nothing left, show "0"
+            currentOperand = currentOperand.slice(0, -1);
+            if (currentOperand === '' || currentOperand === '-') {
+                currentOperand = '0';
+            }
+
+            updateDisplay();
+        }
+
+        // =============================================
+        // FUNCTION: updateDisplay
+        // =============================================
+        // Updates the calculator screen to show the current state.
+
+        function updateDisplay() {
+            currentDisplay.textContent = currentOperand;
+
+            // Show the previous number and operator (e.g., "5 +") above the main display
+            if (operator !== null) {
+                // Use display-friendly symbols instead of programming symbols
+                const displayOp = { '+': '+', '-': '−', '*': '×', '/': '÷', '%': '%' };
+                previousDisplay.textContent = previousOperand + ' ' + (displayOp[operator] || operator);
+            } else {
+                previousDisplay.textContent = '';
+            }
+        }
+
+        // =============================================
+        // KEYBOARD SUPPORT
+        // =============================================
+        // Lets users type numbers and operators using their keyboard.
+
+        document.addEventListener('keydown', function(event) {
+            const key = event.key;
+
+            if (key >= '0' && key <= '9') {
+                appendNumber(key);        // Number keys
+            } else if (key === '.') {
+                appendNumber('.');        // Decimal point
+            } else if (key === '+') {
+                chooseOperator('+');      // Addition
+            } else if (key === '-') {
+                chooseOperator('-');      // Subtraction
+            } else if (key === '*') {
+                chooseOperator('*');      // Multiplication
+            } else if (key === '/') {
+                event.preventDefault();   // Prevent browser's "find" shortcut
+                chooseOperator('/');      // Division
+            } else if (key === '%') {
+                chooseOperator('%');      // Modulo
+            } else if (key === 'Enter' || key === '=') {
+                calculate();             // Calculate result
+            } else if (key === 'Backspace') {
+                deleteDigit();           // Delete last digit
+            } else if (key === 'Escape') {
+                clearAll();              // Clear everything
+            }
+        });
+    </script>
+
+</body>
+</html>
